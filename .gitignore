@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environments and local settings
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+
+# Runtime artifacts
+data/
+trained_models/
+eval_outputs/
+wandb/
+logs/
+unsloth_compiled_cache/
+**/*__tmp_run_*.py
+
+# Large model/data files
+*.bin
+*.ckpt
+*.parquet
+*.pt
+*.pth
+*.safetensors
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

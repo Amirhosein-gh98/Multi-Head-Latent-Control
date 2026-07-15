@@ -1,0 +1,23 @@
+# Install a CUDA-compatible PyTorch build separately before this file.
+datasets
+fastapi
+huggingface-hub
+matplotlib
+numpy
+pandas
+pillow
+pyarrow
+PyYAML
+qwen-vl-utils
+requests
+scikit-learn
+tqdm
+transformers
+unsloth
+uvicorn
+vllm
+wandb
+
+# Optional math evaluators:
+# latex2sympy2-extended
+# math-verify
