@@ -4,12 +4,9 @@
 
 ### Up to 90% lower API cost through dynamic, capability-aware multi-model routing
 
-[![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11-3776AB?logo=python&logoColor=white)](#environment)
 [![PyTorch](https://img.shields.io/badge/PyTorch-Control%20Heads-EE4C2C?logo=pytorch&logoColor=white)](#two-complementary-pipelines)
-[![vLLM](https://img.shields.io/badge/Inference-vLLM-4B8BBE)](#environment)
 [![Models](https://img.shields.io/badge/Models-Qwen%20%7C%20Gemma-1F6FEB)](#repository-layout)
 [![Cost](https://img.shields.io/badge/Plotted%20API%20Cost-Up%20to%2090%25%20Lower-16A34A)](#reported-gains)
-[![Artifacts](https://img.shields.io/badge/Artifacts-Coming%20Soon-F59E0B)](#release-artifacts)
 
 **Route each question by whether the model can actually solve it, not by a fixed task or question category.**
 
