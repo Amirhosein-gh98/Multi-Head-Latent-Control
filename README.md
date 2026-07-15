@@ -2,15 +2,18 @@
 
 # 🔥 Multi-Head Latent Control
 
-### Inference-time control heads that help LLMs decide not only *what to say*, but *what to do next*
+### Up to 90% lower API cost through dynamic, capability-aware multi-model routing
 
 [![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11-3776AB?logo=python&logoColor=white)](#environment)
 [![PyTorch](https://img.shields.io/badge/PyTorch-Control%20Heads-EE4C2C?logo=pytorch&logoColor=white)](#two-complementary-pipelines)
 [![vLLM](https://img.shields.io/badge/Inference-vLLM-4B8BBE)](#environment)
 [![Models](https://img.shields.io/badge/Models-Qwen%20%7C%20Gemma-1F6FEB)](#repository-layout)
+[![Cost](https://img.shields.io/badge/Plotted%20API%20Cost-Up%20to%2090%25%20Lower-16A34A)](#reported-gains)
 [![Artifacts](https://img.shields.io/badge/Artifacts-Coming%20Soon-F59E0B)](#release-artifacts)
 
-**Make small models more capable by escalating only when their own latent state says they need help.**
+**Route each question by whether the model can actually solve it, not by a fixed task or question category.**
+
+**Higher success · Smarter tool use · Better abstention · Large-model compute only when it matters**
 
 </div>
 
@@ -18,28 +21,43 @@
 
 <p align="center"><em>Latent control heads guide answering, tool use, clarification, continued reasoning, and selective routing to a stronger model.</em></p>
 
-> **Headline result:** In the AndroidWorld results shown above, routing from Qwen3-VL 4B to 32B reaches approximately **60% success**, compared with **47%** for the 4B model alone and **58%** for always using 32B, while operating at substantially lower API cost than the full 32B model.
+> **Headline result:** In the AndroidWorld configuration shown above, dynamic Qwen3-VL 4B → 32B routing reaches approximately **60% success** at roughly **90% lower API cost** than always using 32B. It improves over the 4B model alone (**47%**) and even exceeds the plotted 32B-only result (**58%**).
+
+## 🎯 The Core Idea
+
+Most model-routing systems make a static decision from the input: classify the question by topic, difficulty, or task type, then send it to a predetermined model. But two questions from the same category can require very different capabilities, and an agent's needs can change from one reasoning step to the next.
+
+**Multi-Head Latent Control routes dynamically from the model's own hidden state.** The small model starts the task, and lightweight control heads estimate whether it can handle the current question or step. The system can then answer directly, continue reasoning, ask for clarification, invoke a tool, abstain safely, or transfer control to a stronger model.
+
+| Conventional routing | Multi-Head Latent Control |
+| --- | --- |
+| Routes by task or question category | Routes by the model's estimated capability on the actual question |
+| Makes one decision before inference | Can make a new decision at each step of an agent trajectory |
+| Chooses only which model to call | Controls answering, abstention, clarification, tool use, continuation, and escalation |
+| Often overuses expensive models | Keeps easy work local and spends more only when the latent signal indicates it is needed |
 
 ## ✨ Why This Matters
 
-Large models are powerful, but using them for every request is expensive. Small models are efficient, but they do not always know when to ask, use a tool, keep reasoning, or hand control to a stronger model. Multi-Head Latent Control trains lightweight auxiliary heads on frozen LLM hidden states to make those decisions during inference.
+Large models are powerful, but using them for every request is expensive. Small models are efficient, but they do not always know when they are likely to fail. Multi-Head Latent Control trains lightweight auxiliary heads on frozen LLM hidden states, giving the system a learned signal for when to answer, abstain, ask, use a tool, continue, or escalate during inference.
 
 | What the system enables | Practical benefit |
 | --- | --- |
-| 🧠 Read confidence and capability from latent states | Detect likely failures before returning an answer |
-| 🔀 Route only difficult cases to a stronger model | Improve quality without paying large-model cost on every example |
-| 🛠️ Ask, use tools, answer, continue, or transfer | Turn a language model into a more deliberate agent |
+| 🧠 Read confidence and capability from latent states | Detect likely failures on the actual question rather than guessing from its category |
+| 🔀 Route only when the current model needs help | Reduce plotted API cost by up to approximately 90% without sacrificing success |
+| 🛠️ Ask, use tools, answer, continue, abstain, or transfer | Turn a language model into a more deliberate and reliable agent |
+| 🛡️ Improve confidence-aware abstention | Avoid confidently returning an answer when the latent signal indicates likely failure |
 | ❄️ Keep the base LLM frozen | Train small control modules instead of fine-tuning the full model |
 | 🔌 Support multiple model families | Use the same workflow with Qwen3-VL, Qwen3.5, and Gemma 4 variants |
 
+<a id="reported-gains"></a>
 ## 📈 Reported Gains
 
 | AndroidWorld setting | Base success | Routed success | Gain | Takeaway |
 | --- | ---: | ---: | ---: | --- |
-| Qwen3-VL 4B → 32B | 47% | ≈60% | **≈+13 points** | The routed pair exceeds the 32B-only point shown in the figure while using much less API cost |
+| Qwen3-VL 4B → 32B | 47% | ≈60% | **≈+13 points** | Approximately 90% lower plotted API cost than 32B-only while exceeding its 58% success point |
 | Qwen3.5 9B → 27B | 51% | 56% | **+5 points** | Selective routing recovers much of the stronger model's capability at a fraction of its plotted cost |
 
-These values summarize the configurations displayed in the figure and should not be interpreted as universal gains across every model, threshold, or benchmark.
+The cost reduction and success values above are approximate readings from the displayed AndroidWorld configurations. They should not be interpreted as universal gains across every model, routing threshold, workload, or benchmark.
 
 <a id="two-complementary-pipelines"></a>
 ## 🧩 Two Complementary Pipelines
