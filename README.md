@@ -1,19 +1,65 @@
-# Multi-Head Latent Control
+<div align="center">
 
-The repository contains two main pipelines:
+# 🔥 Multi-Head Latent Control
 
-- `global` head: the main latent-control head trained on a mixed-source dataset
-- local head: a local 4-class control head trained on `nvidia/When2Call`
+### Inference-time control heads that help LLMs decide not only *what to say*, but *what to do next*
 
-Both pipelines follow the same high-level stages:
+[![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11-3776AB?logo=python&logoColor=white)](#environment)
+[![PyTorch](https://img.shields.io/badge/PyTorch-Control%20Heads-EE4C2C?logo=pytorch&logoColor=white)](#two-complementary-pipelines)
+[![vLLM](https://img.shields.io/badge/Inference-vLLM-4B8BBE)](#environment)
+[![Models](https://img.shields.io/badge/Models-Qwen%20%7C%20Gemma-1F6FEB)](#repository-layout)
+[![Artifacts](https://img.shields.io/badge/Artifacts-Coming%20Soon-F59E0B)](#release-artifacts)
 
-1. data generation or labeling
-2. head training
-3. evaluation / benchmarking
+**Make small models more capable by escalating only when their own latent state says they need help.**
 
-This README is the main run guide for the release.
+</div>
 
-## What Is Included
+![Multi-Head Latent Control overview and AndroidWorld cost-success results](assets/main_fig_v3.png)
+
+<p align="center"><em>Latent control heads guide answering, tool use, clarification, continued reasoning, and selective routing to a stronger model.</em></p>
+
+> **Headline result:** In the AndroidWorld results shown above, routing from Qwen3-VL 4B to 32B reaches approximately **60% success**, compared with **47%** for the 4B model alone and **58%** for always using 32B, while operating at substantially lower API cost than the full 32B model.
+
+## ✨ Why This Matters
+
+Large models are powerful, but using them for every request is expensive. Small models are efficient, but they do not always know when to ask, use a tool, keep reasoning, or hand control to a stronger model. Multi-Head Latent Control trains lightweight auxiliary heads on frozen LLM hidden states to make those decisions during inference.
+
+| What the system enables | Practical benefit |
+| --- | --- |
+| 🧠 Read confidence and capability from latent states | Detect likely failures before returning an answer |
+| 🔀 Route only difficult cases to a stronger model | Improve quality without paying large-model cost on every example |
+| 🛠️ Ask, use tools, answer, continue, or transfer | Turn a language model into a more deliberate agent |
+| ❄️ Keep the base LLM frozen | Train small control modules instead of fine-tuning the full model |
+| 🔌 Support multiple model families | Use the same workflow with Qwen3-VL, Qwen3.5, and Gemma 4 variants |
+
+## 📈 Reported Gains
+
+| AndroidWorld setting | Base success | Routed success | Gain | Takeaway |
+| --- | ---: | ---: | ---: | --- |
+| Qwen3-VL 4B → 32B | 47% | ≈60% | **≈+13 points** | The routed pair exceeds the 32B-only point shown in the figure while using much less API cost |
+| Qwen3.5 9B → 27B | 51% | 56% | **+5 points** | Selective routing recovers much of the stronger model's capability at a fraction of its plotted cost |
+
+These values summarize the configurations displayed in the figure and should not be interpreted as universal gains across every model, threshold, or benchmark.
+
+<a id="two-complementary-pipelines"></a>
+## 🧩 Two Complementary Pipelines
+
+| Pipeline | Role | Stages |
+| --- | --- | --- |
+| **Global control head** | Learns a general latent signal from a mixed-source dataset for confidence-aware control and routing | Generate → label → train → benchmark |
+| **Local When2Call head** | Learns a local 4-class control signal from `nvidia/When2Call` | Build labels → generate completions → train → evaluate |
+
+## 🚀 Choose Your Path
+
+| Goal | Start here |
+| --- | --- |
+| Train the global control head | [Global Head Quick Start](#global-head-quick-start) |
+| Train and evaluate the local head | [When2Call Quick Start](#when2call-quick-start) |
+| Evaluate dynamic model routing | [Multi-Agent Benchmark](#multi-agent-benchmark-example) |
+| Run the embodied-agent evaluation | [Android World Benchmark](#android-world-benchmark) |
+| Reproduce the released setup | [Environment](#environment) and [Reproducibility Notes](#reproducibility-notes) |
+
+## 📦 What Is Included
 
 - training and labeling scripts for the global head
 - training and evaluation scripts for the local head
@@ -21,7 +67,7 @@ This README is the main run guide for the release.
 - multi-agent benchmarking scripts under `multi_agenT_bench/`
 - inference utilities under `inference/`
 
-## What Is Not Included
+### Not included in Git
 
 - training datasets
 - downloaded base models
@@ -30,7 +76,8 @@ This README is the main run guide for the release.
 
 The trained heads and training data will be hosted separately because of their size.
 
-## Release Artifacts
+<a id="release-artifacts"></a>
+## 📥 Release Artifacts
 
 | Artifact | Link |
 | --- | --- |
@@ -53,7 +100,8 @@ eval_outputs/
 
 All released configs use repo-relative paths such as `data/train/...` and `trained_models/...`.
 
-## Repository Layout
+<a id="repository-layout"></a>
+## 🗂️ Repository Layout
 
 - `combined_all_datagen_multimodel.py`: mixed-source raw generation for the global head
 - `combined_all_labeling_multimodel.py`: correctness labeling for generated global-head data
@@ -66,7 +114,8 @@ All released configs use repo-relative paths such as `data/train/...` and `train
 
 Note: the folder name `receipes` is kept unchanged to avoid breaking script paths.
 
-## Environment
+<a id="environment"></a>
+## ⚙️ Environment
 
 Use Python 3.10 or 3.11 in a CUDA-enabled environment compatible with your GPU drivers and base models.
 
@@ -86,7 +135,8 @@ Run all commands below from the repository root.
 
 The exact PyTorch, CUDA, vLLM, Transformers, Unsloth, and Flash Attention versions must be mutually compatible. Record the versions used for a run with `pip freeze > environment-freeze.txt`; the final artifact release should include the freeze from the paper environment. Training recipes enable Weights & Biases by default, so run `wandb login`, set `WANDB_MODE=offline`, or set `wandb_enabled: false` in the selected recipe.
 
-## Global Head Quick Start
+<a id="global-head-quick-start"></a>
+## 🌐 Global Head Quick Start
 
 ### 1) Generate raw completions
 
@@ -116,7 +166,8 @@ python train_head_standalone_unsloth_regression_weighted_multimodel.py \
 
 To switch models or thinking modes, swap the run name and recipe file. The released recipes cover Qwen3.5, Qwen3-VL, and Gemma 4 variants.
 
-## When2Call Quick Start
+<a id="when2call-quick-start"></a>
+## 📞 When2Call Quick Start
 
 ### 1) Build labeled training data
 
@@ -186,7 +237,8 @@ python when2call/eval/eval_when2call_model_only_judge_4class.py \
 
 Swap the model id, output directory, and recipe file for the other When2Call variants in `when2call/receipes/`.
 
-## Multi-Agent Benchmark Example
+<a id="multi-agent-benchmark-example"></a>
+## 🤝 Multi-Agent Benchmark Example
 
 ```bash
 python multi_agenT_bench/run_multi_agent_generate_then_eval.py \
@@ -211,7 +263,8 @@ Most benchmark datasets are downloaded from Hugging Face automatically. The two 
 
 These CSV files are not part of this repository. Until their source or preparation script is released, use one of the Hugging Face-backed modes such as `triviaqa`, `mathvista`, or `simplevqa`.
 
-## Android World Benchmark
+<a id="android-world-benchmark"></a>
+## 📱 Android World Benchmark
 
 For Android World benchmarking, use the upstream MobileAgent Android World implementation here:
 
@@ -240,7 +293,8 @@ For Qwen3.5, use `vllm_verfier_server_qwen3_5.py` and set the corresponding `GEN
 
 This repository provides the verifier proxy only. Android SDK, emulator or device, Android World, and Mobile-Agent installation remain governed by the linked upstream instructions.
 
-## Reproducibility Notes
+<a id="reproducibility-notes"></a>
+## 🔬 Reproducibility Notes
 
 - Run every command from the repository root; scripts and recipes use repository-relative paths.
 - Seeds are set in the released recipes, but GPU sampling can still vary across CUDA, vLLM, model revisions, and hardware.
