@@ -21,7 +21,6 @@
 
 <p align="center"><em>Latent control heads guide answering, tool use, clarification, continued reasoning, and selective routing to a stronger model.</em></p>
 
-> **Headline result:** In the AndroidWorld configuration shown above, dynamic Qwen3-VL 4B → 32B routing reaches approximately **60% success** at roughly **90% lower API cost** than always using 32B. It improves over the 4B model alone (**47%**) and even exceeds the plotted 32B-only result (**58%**).
 
 ## 🎯 The Core Idea
 
