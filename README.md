@@ -308,9 +308,3 @@ For Qwen3.5, use `vllm_verfier_server_qwen3_5.py` and set the corresponding `GEN
 This repository provides the verifier proxy only. Android SDK, emulator or device, Android World, and Mobile-Agent installation remain governed by the linked upstream instructions.
 
 <a id="reproducibility-notes"></a>
-## 🔬 Reproducibility Notes
-
-- Run every command from the repository root; scripts and recipes use repository-relative paths.
-- Seeds are set in the released recipes, but GPU sampling can still vary across CUDA, vLLM, model revisions, and hardware.
-- Save the run manifest, recipe, package freeze, model revisions, and dataset/checkpoint hashes with reported results.
-- Downloaded training data and trained heads will be linked in the Release Artifacts section.
