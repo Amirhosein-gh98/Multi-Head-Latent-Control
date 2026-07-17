@@ -308,3 +308,19 @@ For Qwen3.5, use `vllm_verfier_server_qwen3_5.py` and set the corresponding `GEN
 This repository provides the verifier proxy only. Android SDK, emulator or device, Android World, and Mobile-Agent installation remain governed by the linked upstream instructions.
 
 <a id="reproducibility-notes"></a>
+
+## Citation
+
+If you find this work useful, please cite our paper:
+
+```bibtex
+@misc{ghasemabadi2026multiheadlatentcontrol,
+  title         = {Multi-Head Latent Control: A Unified Interface for LLM Agent Decision Making},
+  author        = {Amirhosein Ghasemabadi and Ruichen Chen and Bahador Rashidi and Di Niu},
+  year          = {2026},
+  eprint        = {2607.14277},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CL},
+  url           = {https://arxiv.org/abs/2607.14277}
+}
+```
