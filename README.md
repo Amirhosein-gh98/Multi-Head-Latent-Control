@@ -1,317 +1,190 @@
 <div align="center">
 
-# 🔥 Multi-Head Latent Control
+# Multi-Head Latent Control
 
-### Up to 90% lower API cost through dynamic, capability-aware multi-model routing
+### Capability-aware routing from a model's own hidden states
 
-[![PyTorch](https://img.shields.io/badge/PyTorch-Control%20Heads-EE4C2C?logo=pytorch&logoColor=white)](#two-complementary-pipelines)
-[![Models](https://img.shields.io/badge/Models-Qwen%20%7C%20Gemma-1F6FEB)](#repository-layout)
-[![Cost](https://img.shields.io/badge/Plotted%20API%20Cost-Up%20to%2090%25%20Lower-16A34A)](#reported-gains)
+[![PyTorch](https://img.shields.io/badge/PyTorch-Capability%20Heads-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
+[![Models](https://img.shields.io/badge/Models-Hugging%20Face-FFD21E?logo=huggingface&logoColor=black)](https://huggingface.co/collections/AmirhoseinGH/multi-head-latent-control-capability-heads)
+[![Paper](https://img.shields.io/badge/arXiv-2607.14277-B31B1B?logo=arxiv)](https://arxiv.org/abs/2607.14277)
 
-**Route each question by whether the model can actually solve it, not by a fixed task or question category.**
-
-**Higher success · Smarter tool use · Better abstention · Large-model compute only when it matters**
+**Let a small model answer easy requests and escalate only when its latent state says it needs help.**
 
 </div>
 
-![Multi-Head Latent Control overview and AndroidWorld cost-success results](assets/main_fig_v3.png)
+![Multi-Head Latent Control overview](assets/main_fig_v3.png)
 
-<p align="center"><em>Latent control heads guide answering, tool use, clarification, continued reasoning, and selective routing to a stronger model.</em></p>
+Multi-Head Latent Control (MHLC) adds lightweight control heads to frozen language models. The **Capability Head** reads the hidden-state trajectory of a generated answer and returns a score from 0 to 1: higher means the current model is more likely to be capable of handling the request. A routing policy can accept the answer or send the request to a stronger model.
 
+This makes it practical to build:
 
-## 🎯 The Core Idea
+- small-to-large model routing and model cascades;
+- selective escalation for difficult requests;
+- lower-cost, lower-latency inference on easy traffic;
+- collaborative inference systems that retry, repair, use tools, or hand off;
+- confidence-aware abstention and agent control.
 
-Most model-routing systems make a static decision from the input: classify the question by topic, difficulty, or task type, then send it to a predetermined model. But two questions from the same category can require very different capabilities, and an agent's needs can change from one reasoning step to the next.
+The backbone stays frozen. A released head is only a few MiB and can be evaluated after generation without fine-tuning or replacing the language model.
 
-**Multi-Head Latent Control routes dynamically from the model's own hidden state.** The small model starts the task, and lightweight control heads estimate whether it can handle the current question or step. The system can then answer directly, continue reasoning, ask for clarification, invoke a tool, abstain safely, or transfer control to a stronger model.
+## How routing works
 
-| Conventional routing | Multi-Head Latent Control |
-| --- | --- |
-| Routes by task or question category | Routes by the model's estimated capability on the actual question |
-| Makes one decision before inference | Can make a new decision at each step of an agent trajectory |
-| Chooses only which model to call | Controls answering, abstention, clarification, tool use, continuation, and escalation |
-| Often overuses expensive models | Keeps easy work local and spends more only when the latent signal indicates it is needed |
+1. Generate an answer and get its hidden states.
+2. Pass the hidden states to the Capability Head to predict an adequacy score from 0 to 1.
+3. Accept the answer when the score is above your threshold; otherwise route the request to a stronger model.
 
-## ✨ Why This Matters
+Each head must be used with its matching backbone and thinking mode.
 
-Large models are powerful, but using them for every request is expensive. Small models are efficient, but they do not always know when they are likely to fail. Multi-Head Latent Control trains lightweight auxiliary heads on frozen LLM hidden states, giving the system a learned signal for when to answer, abstain, ask, use a tool, continue, or escalate during inference.
+## Pretrained Capability Heads
 
-| What the system enables | Practical benefit |
-| --- | --- |
-| 🧠 Read confidence and capability from latent states | Detect likely failures on the actual question rather than guessing from its category |
-| 🔀 Route only when the current model needs help | Reduce plotted API cost by up to approximately 90% without sacrificing success |
-| 🛠️ Ask, use tools, answer, continue, abstain, or transfer | Turn a language model into a more deliberate and reliable agent |
-| 🛡️ Improve confidence-aware abstention | Avoid confidently returning an answer when the latent signal indicates likely failure |
-| ❄️ Keep the base LLM frozen | Train small control modules instead of fine-tuning the full model |
-| 🔌 Support multiple model families | Use the same workflow with Qwen3-VL, Qwen3.5, and Gemma 4 variants |
+All weights are in the [Multi-Head Latent Control Capability Heads collection](https://huggingface.co/collections/AmirhoseinGH/multi-head-latent-control-capability-heads). Each repository contains `capability_head.pt` and `capability_head_config.json`.
 
-<a id="reported-gains"></a>
-## 📈 Reported Gains
-
-| AndroidWorld setting | Base success | Routed success | Gain | Takeaway |
-| --- | ---: | ---: | ---: | --- |
-| Qwen3-VL 4B → 32B | 47% | ≈60% | **≈+13 points** | Approximately 90% lower plotted API cost than 32B-only while exceeding its 58% success point |
-| Qwen3.5 9B → 27B | 51% | 56% | **+5 points** | Selective routing recovers much of the stronger model's capability at a fraction of its plotted cost |
-
-The cost reduction and success values above are approximate readings from the displayed AndroidWorld configurations. They should not be interpreted as universal gains across every model, routing threshold, workload, or benchmark.
-
-<a id="two-complementary-pipelines"></a>
-## 🧩 Two Complementary Pipelines
-
-| Pipeline | Role | Stages |
+| Backbone | Mode / variant | Capability Head |
 | --- | --- | --- |
-| **Global control head** | Learns a general latent signal from a mixed-source dataset for confidence-aware control and routing | Generate → label → train → benchmark |
-| **Local When2Call head** | Learns a local 4-class control signal from `nvidia/When2Call` | Build labels → generate completions → train → evaluate |
+| `Qwen/Qwen3-VL-2B-Thinking` | thinking, full trajectory | [`AmirhoseinGH/mhlc-capability-head-qwen3vl-2b-thinking`](https://huggingface.co/AmirhoseinGH/mhlc-capability-head-qwen3vl-2b-thinking) |
+| `Qwen/Qwen3-VL-4B-Instruct` | instruct, full trajectory | [`AmirhoseinGH/mhlc-capability-head-qwen3vl-4b-instruct`](https://huggingface.co/AmirhoseinGH/mhlc-capability-head-qwen3vl-4b-instruct) |
+| `Qwen/Qwen3-VL-4B-Thinking` | thinking, full trajectory | [`AmirhoseinGH/mhlc-capability-head-qwen3vl-4b-thinking`](https://huggingface.co/AmirhoseinGH/mhlc-capability-head-qwen3vl-4b-thinking) |
+| `Qwen/Qwen3.5-4B` | thinking off, full trajectory | [`AmirhoseinGH/mhlc-capability-head-qwen35-4b`](https://huggingface.co/AmirhoseinGH/mhlc-capability-head-qwen35-4b) |
+| `Qwen/Qwen3.5-9B` | thinking off, full trajectory | [`AmirhoseinGH/mhlc-capability-head-qwen35-9b`](https://huggingface.co/AmirhoseinGH/mhlc-capability-head-qwen35-9b) |
+| `google/gemma-4-E4B-it` | instruct, full trajectory | [`AmirhoseinGH/mhlc-capability-head-gemma4-e4b-instruct`](https://huggingface.co/AmirhoseinGH/mhlc-capability-head-gemma4-e4b-instruct) |
+| `google/gemma-4-E4B-it` | thinking, full trajectory | [`AmirhoseinGH/mhlc-capability-head-gemma4-e4b-thinking`](https://huggingface.co/AmirhoseinGH/mhlc-capability-head-gemma4-e4b-thinking) |
+| `Qwen/Qwen3-VL-32B-Instruct-FP8` | instruct, full trajectory | [`AmirhoseinGH/mhlc-capability-head-qwen3vl-32b-instruct-step10000`](https://huggingface.co/AmirhoseinGH/mhlc-capability-head-qwen3vl-32b-instruct-step10000) |
+| `Qwen/Qwen3-VL-4B-Thinking` | lightweight, full trajectory | [`AmirhoseinGH/mhlc-capability-head-qwen3vl-4b-thinking-lite`](https://huggingface.co/AmirhoseinGH/mhlc-capability-head-qwen3vl-4b-thinking-lite) |
+| `Qwen/Qwen3-VL-2B-Thinking` | first 200 completion tokens | [`AmirhoseinGH/mhlc-capability-head-qwen3vl-2b-thinking-prefix200`](https://huggingface.co/AmirhoseinGH/mhlc-capability-head-qwen3vl-2b-thinking-prefix200) |
+| `Qwen/Qwen3-VL-4B-Thinking` | first 200 completion tokens | [`AmirhoseinGH/mhlc-capability-head-qwen3vl-4b-thinking-prefix200`](https://huggingface.co/AmirhoseinGH/mhlc-capability-head-qwen3vl-4b-thinking-prefix200) |
+| `google/gemma-4-E4B-it` | thinking, first 200 completion tokens | [`AmirhoseinGH/mhlc-capability-head-gemma4-e4b-thinking-prefix200`](https://huggingface.co/AmirhoseinGH/mhlc-capability-head-gemma4-e4b-thinking-prefix200) |
 
-## 🚀 Choose Your Path
+**Prefix heads** are trained to predict model adequacy from a partial answer—the first 200 generated tokens—so routing can happen before the full answer is finished.
 
-| Goal | Start here |
-| --- | --- |
-| Train the global control head | [Global Head Quick Start](#global-head-quick-start) |
-| Train and evaluate the local head | [When2Call Quick Start](#when2call-quick-start) |
-| Evaluate dynamic model routing | [Multi-Agent Benchmark](#multi-agent-benchmark-example) |
-| Run the embodied-agent evaluation | [Android World Benchmark](#android-world-benchmark) |
-| Reproduce the released setup | [Environment](#environment) and [Reproducibility Notes](#reproducibility-notes) |
+Download a checkpoint programmatically:
 
-## 📦 What Is Included
+```python
+from huggingface_hub import hf_hub_download
 
-- training and labeling scripts for the global head
-- training and evaluation scripts for the local head
-- training recipes under `recipes/training/` and `when2call/receipes/`
-- multi-agent benchmarking scripts under `multi_agenT_bench/`
-- inference utilities under `inference/`
-
-### Not included in Git
-
-- training datasets
-- downloaded base models
-- trained checkpoints
-- benchmark outputs
-
-The trained heads and training data will be hosted separately because of their size.
-
-<a id="release-artifacts"></a>
-## 📥 Release Artifacts
-
-| Artifact | Link |
-| --- | --- |
-| Trained global and local control heads | **Coming soon** (`TRAINED_HEADS_URL`) |
-| Processed training data | **Coming soon** (`TRAINING_DATA_URL`) |
-
-Replace the placeholders above with the public artifact links when the files are released. After downloading, place the trained heads under `trained_models/` and the training data under `data/train/`, preserving the directory names used by the recipes.
-
-For exact paper reproduction, use the released processed training data rather than regenerating it from the latest upstream dataset versions. The generation scripts are provided for transparency and for creating new data.
-
-Expected runtime/output directories are:
-
-```text
-data/
-  train/
-  benchmarks/
-trained_models/
-eval_outputs/
+checkpoint_path = hf_hub_download(
+    repo_id="AmirhoseinGH/mhlc-capability-head-qwen3vl-2b-thinking",
+    filename="capability_head.pt",
+)
 ```
 
-All released configs use repo-relative paths such as `data/train/...` and `trained_models/...`.
+## Installation
 
-<a id="repository-layout"></a>
-## 🗂️ Repository Layout
-
-- `combined_all_datagen_multimodel.py`: mixed-source raw generation for the global head
-- `combined_all_labeling_multimodel.py`: correctness labeling for generated global-head data
-- `train_head_standalone_unsloth_regression_weighted_multimodel.py`: global-head training
-- `recipes/training/`: global-head recipes
-- `when2call/`: local-head data processing, training, and evaluation
-- `when2call/receipes/`: local-head recipes
-- `multi_agenT_bench/`: multi-agent evaluation scripts
-- `inference/`: inference-time helper utilities
-
-Note: the folder name `receipes` is kept unchanged to avoid breaking script paths.
-
-<a id="environment"></a>
-## ⚙️ Environment
-
-Use Python 3.10 or 3.11 in a CUDA-enabled environment compatible with your GPU drivers and base models.
-
-Install a CUDA-matched `torch` build first, then install the remaining dependencies:
+Use a Python version supported by your CUDA, PyTorch, Unsloth, and vLLM stack (Python 3.10+). Then install the project dependencies:
 
 ```bash
+git clone https://github.com/Amirhosein-gh98/Multi-Head-Latent-Control.git
+cd Multi-Head-Latent-Control
+
+# Install a CUDA-matched torch build first.
 pip install -r requirements.txt
 ```
 
-Optional packages used by some math-verification paths:
+The inference path uses PyTorch, Transformers, Hugging Face Hub, Unsloth, and vLLM. Flash Attention, CUDA, PyTorch, Transformers, Unsloth, and vLLM versions must be mutually compatible. Gemma checkpoints may require accepting the model license on Hugging Face.
 
-```bash
-pip install latex2sympy2-extended math-verify
+## Minimal end-to-end routing example
+
+This example generates an answer with Qwen3-VL-2B, extracts its hidden-state signal through the existing runtime, and uses the matching Capability Head to decide whether to accept or escalate.
+
+```python
+from huggingface_hub import hf_hub_download
+
+from multi_agenT_bench.compact_multi_agent_shared_optimized_v4_textbench import (
+    AuxHeadRuntime,
+    AuxHeadRuntimeConfig,
+    SamplingConfig,
+    VLLMChatRuntime,
+    VLLMRuntimeConfig,
+)
+
+BACKBONE = "Qwen/Qwen3-VL-2B-Thinking"
+HEAD_REPO = "AmirhoseinGH/mhlc-capability-head-qwen3vl-2b-thinking"
+THRESHOLD = 0.5
+PROMPT = "A shop sells 3 notebooks for $12. What is the price of 7 notebooks?"
+
+def main():
+    checkpoint_path = hf_hub_download(HEAD_REPO, "capability_head.pt")
+
+    # Generate an answer with the small model.
+    generator = VLLMChatRuntime(VLLMRuntimeConfig(
+        model_name_or_path=BACKBONE,
+        max_model_len=4096,
+        gpu_memory_utilization=0.45,
+        max_num_seqs=1,
+    ))
+    generation = generator.generate(
+        messages=[{"role": "user", "content": PROMPT}],
+        image=None,
+        sampling_cfg=SamplingConfig(greedy=True, max_new_tokens=256),
+    )
+    generator.unload(drop_processor=True)
+
+    # Score the answer with its matching Capability Head.
+    router = AuxHeadRuntime(AuxHeadRuntimeConfig(
+        enabled=True,
+        model_name_or_path=BACKBONE,
+        aux_head_ckpt=checkpoint_path,
+        regression_threshold=THRESHOLD,
+        head_input_mode="completion_text_only",
+    ))
+    router.load()
+    result = router.score_single(
+        prompt_text=PROMPT,
+        image=None,
+        response_text=generation.text,
+    )
+
+    score = result.prob_correct
+    should_escalate = score < THRESHOLD
+
+    print(f"Prompt: {PROMPT}")
+    print(f"Generated answer: {generation.text}")
+    print(f"Capability score: {score:.6f}")
+    print(f"Threshold: {THRESHOLD:.2f}")
+    print(f"Routing decision: {'ESCALATE' if should_escalate else 'ACCEPT'}")
+
+    if should_escalate:
+        print("Route the original prompt to the configured stronger model.")
+
+
+if __name__ == "__main__":
+    main()
 ```
 
-Run all commands below from the repository root.
+Save the example as a `.py` file and run it from the repository root. The `main()` guard is required by vLLM multiprocessing. A ready-to-submit one-GPU Slurm version using the `unsloth_vllm` conda environment is in [docs/VERIFICATION.md](docs/VERIFICATION.md).
 
-The exact PyTorch, CUDA, vLLM, Transformers, Unsloth, and Flash Attention versions must be mutually compatible. Record the versions used for a run with `pip freeze > environment-freeze.txt`; the final artifact release should include the freeze from the paper environment. Training recipes enable Weights & Biases by default, so run `wandb login`, set `WANDB_MODE=offline`, or set `wandb_enabled: false` in the selected recipe.
+`AuxHeadRuntime` handles hidden-state extraction and returns the capability score as `prob_correct`.
 
-<a id="global-head-quick-start"></a>
-## 🌐 Global Head Quick Start
+## Choosing a threshold
 
-### 1) Generate raw completions
+`0.5` is a smoke-test default, not a universal operating point. Calibrate the threshold on held-out traffic from the target deployment:
 
-```bash
-python combined_all_datagen_multimodel.py \
-  --model-id Qwen/Qwen3.5-2B \
-  --model-family qwen3_5 \
-  --thinking-mode on \
-  --run-name Qwen3_5_2B_think_on_hard_Mixed_Sources_120k \
-  --save-root data/train/Qwen3.5/Qwen3_5_2B_think_on_hard_Mixed_Sources_120k
+- raise it to escalate more often and favor quality;
+- lower it to accept more small-model answers and favor cost or latency;
+- report both task quality and routing/cost metrics when comparing policies.
+
+## Research and reproduction
+
+The paper workflow is kept separate from the product quick start:
+
+- [Reproduction guide](docs/REPRODUCTION.md) — environment, data generation, labeling, paper pipeline, and expected artifacts.
+- [Training guide](docs/TRAINING.md) — dataset schema, labels, architecture, losses, configs, checkpoints, and new backbones.
+- [Benchmarking guide](docs/BENCHMARKING.md) — datasets, routing strategies, thresholds, metrics, cost analysis, and result files.
+- [Slurm verification](docs/VERIFICATION.md) — one-GPU smoke test for the example above.
+
+## Repository layout
+
+```text
+aux_head_shared_utils.py                 # token masks, head wrapper, shared loading helpers
+feature_extractors.py                    # hidden-trajectory encoders and prediction head
+multi_agenT_bench/                       # generation, routing, and benchmark evaluation
+recipes/training/                        # global Capability Head recipes
+when2call/                               # local four-class control-head pipeline
+inference/                               # inference-time services
+docs/                                    # research, training, benchmarking, and verification guides
 ```
 
-### 2) Label the generated data
-
-```bash
-python combined_all_labeling_multimodel.py \
-  --run-root data/train/Qwen3.5/Qwen3_5_2B_think_on_hard_Mixed_Sources_120k \
-  --judge-model-id Qwen/Qwen3-VL-30B-A3B-Instruct-FP8
-```
-
-### 3) Train the head
-
-```bash
-python train_head_standalone_unsloth_regression_weighted_multimodel.py \
-  --config recipes/training/qwen3_5_2b_think_on.yaml
-```
-
-To switch models or thinking modes, swap the run name and recipe file. The released recipes cover Qwen3.5, Qwen3-VL, and Gemma 4 variants.
-
-<a id="when2call-quick-start"></a>
-## 📞 When2Call Quick Start
-
-### 1) Build labeled training data
-
-```bash
-python when2call/when2call_build_head_labels_4class.py \
-  --dataset_id nvidia/When2Call \
-  --splits train_sft train_pref \
-  --output_dir data/train/when2call/when2call_processed_4class \
-  --model_id Qwen/Qwen3-30B-A3B-Instruct-2507-FP8 \
-  --tokenizer_id Qwen/Qwen3-30B-A3B-Instruct-2507-FP8 \
-  --dtype auto \
-  --batch_size 256 \
-  --max_tokens 16000 \
-  --gpu_memory_utilization 0.50 \
-  --tensor_parallel_size 1 \
-  --max_model_len 32000 \
-  --seed 42 \
-  --resume \
-  --export_parquet
-```
-
-### 2) Generate training completions
-
-```bash
-python when2call/when2call_generate_completions_4class.py \
-  --input_path data/train/when2call/when2call_processed_4class/when2call_aux_labels.jsonl \
-  --output_dir data/train/when2call/qwen3vl/Qwen3-VL-2B-Instruct_4class \
-  --model_id Qwen/Qwen3-VL-2B-Instruct \
-  --model_family qwen3_vl \
-  --thinking_mode off \
-  --batch_size 64 \
-  --max_tokens 16000 \
-  --gpu_memory_utilization 0.90 \
-  --resume
-```
-
-### 3) Train the local head
-
-```bash
-python when2call/train_when2call_head_4class_3sigmoid.py \
-  --config when2call/receipes/train_head_Qwen3-VL-2B-Instruct_4class.yaml
-```
-
-### 4) Generate evaluation completions
-
-```bash
-python when2call/eval/generate_when2call_eval_completions_4class.py \
-  --model_id Qwen/Qwen3-VL-2B-Instruct \
-  --output_path eval_outputs/when2call/Qwen3-VL-2B-Instruct/when2call_test_generated_4class.parquet
-```
-
-### 5) Evaluate the trained head
-
-```bash
-python when2call/eval/eval_when2call_head_only_4class_3sigmoid.py \
-  --model_name_or_path Qwen/Qwen3-VL-2B-Instruct \
-  --head_checkpoint_path trained_models/Qwen3-VL-2B-Instruct_When2call_4class/head-final.pt \
-  --generated_eval_path eval_outputs/when2call/Qwen3-VL-2B-Instruct/when2call_test_generated_4class.parquet \
-  --output_dir eval_outputs/when2call/Qwen3-VL-2B-Instruct/head_only_eval_4class
-```
-
-```bash
-python when2call/eval/eval_when2call_model_only_judge_4class.py \
-  --generated_eval_path eval_outputs/when2call/Qwen3-VL-2B-Instruct/when2call_test_generated_4class.parquet \
-  --output_dir eval_outputs/when2call/Qwen3-VL-2B-Instruct/model_only_judge_eval_4class
-```
-
-Swap the model id, output directory, and recipe file for the other When2Call variants in `when2call/receipes/`.
-
-<a id="multi-agent-benchmark-example"></a>
-## 🤝 Multi-Agent Benchmark Example
-
-```bash
-python multi_agenT_bench/run_multi_agent_generate_then_eval.py \
-  --benchmark triviaqa \
-  --model1_name_or_path Qwen/Qwen3-VL-2B-Thinking \
-  --model2_name_or_path Qwen/Qwen3-VL-32B-Thinking-FP8 \
-  --model1_aux_head_ckpt trained_models/Qwen3VL-2B_Thinking_120K_lite/aux_head_final.pt \
-  --model1_model_family qwen3_vl \
-  --model1_thinking_mode on \
-  --model2_model_family qwen3_vl \
-  --model2_thinking_mode on \
-  --strategy_names single_agent_model1,single_agent_model2,m1_after_finish_handoff_fresh_m2 \
-  --model1_aux_thresholds 0.5,0.6,0.7,0.8,0.9 \
-  --model2_aux_threshold 0.80 \
-  --output_base_root eval_outputs/multi_agent_compact
-```
-
-Most benchmark datasets are downloaded from Hugging Face automatically. The two local CSV modes require:
-
-- `math`: `data/benchmarks/merged_math.csv`
-- `mmlu_pro`: `data/benchmarks/test.csv`
-
-These CSV files are not part of this repository. Until their source or preparation script is released, use one of the Hugging Face-backed modes such as `triviaqa`, `mathvista`, or `simplevqa`.
-
-<a id="android-world-benchmark"></a>
-## 📱 Android World Benchmark
-
-For Android World benchmarking, use the upstream MobileAgent Android World implementation here:
-
-[X-PLUG/MobileAgent: `Mobile-Agent-v3.5/android_world_v3.5`](https://github.com/X-PLUG/MobileAgent/tree/main/Mobile-Agent-v3.5/android_world_v3.5)
-
-Follow their setup and run instructions step by step. Use the Mobile-Agent revision recorded with your experiment because the upstream repository may change after this release.
-
-The intended service layout is:
-
-- small-model vLLM OpenAI server: port `8000`
-- auxiliary-head verifier proxy: port `8001`
-- large-model vLLM OpenAI server: port `8002`
-
-After starting the small and large vLLM servers according to the Mobile-Agent instructions, launch the verifier proxy from this repository root. For Qwen3-VL, run:
-
-```bash
-GENERATOR_BASE_URL=http://127.0.0.1:8000/v1 \
-GENERATOR_MODEL_NAME=Qwen/Qwen3-VL-4B-Instruct \
-AUX_MODEL_NAME_OR_PATH=Qwen/Qwen3-VL-4B-Instruct \
-AUX_HEAD_CKPT=trained_models/Qwen3VL-4B_instruct_120K/aux_head_final.pt \
-PORT=8001 \
-python inference/qwen3vl/android_world/vllm_verfier_server.py
-```
-
-For Qwen3.5, use `vllm_verfier_server_qwen3_5.py` and set the corresponding `GENERATOR_MODEL_NAME`, `AUX_MODEL_NAME_OR_PATH`, `AUX_MODEL_FAMILY`, `AUX_THINKING_MODE`, and `AUX_HEAD_CKPT` values. Configure Mobile-Agent's small-model endpoint as `http://127.0.0.1:8001/v1` and its large-model endpoint as `http://127.0.0.1:8002/v1`.
-
-This repository provides the verifier proxy only. Android SDK, emulator or device, Android World, and Mobile-Agent installation remain governed by the linked upstream instructions.
-
-<a id="reproducibility-notes"></a>
+The existing directory name `multi_agenT_bench` and the `when2call/receipes` spelling are retained for compatibility.
 
 ## Citation
-
-If you find this work useful, please cite our paper:
 
 ```bibtex
 @misc{ghasemabadi2026multiheadlatentcontrol,
